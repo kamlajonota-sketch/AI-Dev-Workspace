@@ -1,0 +1,61 @@
+name: Sync official ECC source
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecc_ref:
+        description: "Official ECC branch, tag, or commit to mirror"
+        required: true
+        default: "main"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-ecc.yml"
+      - "docs/ECC_CHATGPT_GUIDE.md"
+      - "scripts/build_ecc_index.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-ecc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout workspace
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Checkout official ECC
+        uses: actions/checkout@v4
+        with:
+          repository: affaan-m/ECC
+          ref: ${{ inputs.ecc_ref || 'main' }}
+          path: ecc-source
+
+      - name: Mirror all official ECC files into vendor/ecc
+        shell: bash
+        run: |
+          mkdir -p vendor/ecc
+          rsync -a --delete --exclude='.git' ecc-source/ vendor/ecc/
+
+      - name: Generate searchable ECC file index
+        run: python scripts/build_ecc_index.py
+
+      - name: Commit mirrored source and index
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor/ecc ECC_FILE_INDEX.md
+          if git diff --cached --quiet; then
+            echo "ECC mirror is already up to date."
+            exit 0
+          fi
+          git commit -m "Sync official ECC source snapshot"
+          git push
