@@ -52,7 +52,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin "${GITHUB_REF_NAME}"
           git rebase "origin/${GITHUB_REF_NAME}"
-          git add vendor/ecc ECC_FILE_INDEX.md
+          git add -f vendor/ecc ECC_FILE_INDEX.md
           if git diff --cached --quiet; then
             echo "ECC mirror is already up to date."
             exit 0
