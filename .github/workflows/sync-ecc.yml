@@ -12,8 +12,6 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/sync-ecc.yml"
-      - "docs/ECC_CHATGPT_GUIDE.md"
-      - "scripts/build_ecc_index.py"
 
 permissions:
   contents: write
@@ -52,10 +50,21 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
           git add vendor/ecc ECC_FILE_INDEX.md
           if git diff --cached --quiet; then
             echo "ECC mirror is already up to date."
             exit 0
           fi
           git commit -m "Sync official ECC source snapshot"
-          git push
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; rebasing onto latest branch."
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+          done
+          echo "Unable to push ECC mirror after three attempts."
+          exit 1
